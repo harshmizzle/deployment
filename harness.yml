@@ -1,0 +1,97 @@
+pipeline:
+  name: example-pipeline
+  identifier: example-pipeline-id
+  description: A simple example pipeline
+  tags:
+    - example
+    - harness
+  stages:
+    - stage:
+        name: Build
+        identifier: build-stage
+        type: Build
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Checkout Code
+                  identifier: checkout-code
+                  type: GitClone
+                  spec:
+                    repoURL: "https://github.com/harshmizzle/deployment"
+                    branch: "main"
+                    outputDirectory: "/tmp/repo"
+              - step:
+                  name: Build Docker Image
+                  identifier: build-docker-image
+                  type: Docker
+                  spec:
+                    buildContext: "/tmp/repo"
+                    dockerFilePath: "Dockerfile"
+                    imageName: harsh26261/my-node-app:8"
+                    push:
+                      enabled: true
+                      registry: "docker.io"
+                      credentialsRef: "docker-credentials"
+
+    - stage:
+        name: Test
+        identifier: test-stage
+        type: Test
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Run Unit Tests
+                  identifier: run-unit-tests
+                  type: RunTests
+                  spec:
+                    testCommand: "npm run test"
+                    workingDirectory: "/tmp/repo"
+              - step:
+                  name: Run Integration Tests
+                  identifier: run-integration-tests
+                  type: RunTests
+                  spec:
+                    testCommand: "npm run integration-test"
+                    workingDirectory: "/tmp/repo"
+
+    - stage:
+        name: Deploy
+        identifier: deploy-stage
+        type: Deploy
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Deploy to Staging
+                  identifier: deploy-to-staging
+                  type: Kubernetes
+                  spec:
+                    namespace: "staging"
+                    releaseName: "staging-release"
+                    manifests:
+                      - "k8s/manifests/staging-deployment.yaml"
+                    values:
+                      - image: "your-docker-repo/your-image:latest"
+                    strategy: RollingUpdate
+
+              - step:
+                  name: Deploy to Production
+                  identifier: deploy-to-production
+                  type: Kubernetes
+                  spec:
+                    namespace: "production"
+                    releaseName: "production-release"
+                    manifests:
+                      - "k8s/manifests/production-deployment.yaml"
+                    values:
+                      - image: "your-docker-repo/your-image:latest"
+                    strategy: RollingUpdate
+                    rollback:
+                      enabled: true
+
+  trigger:
+    type: manual
+    name: "Manual Trigger"
+    description: "Manual trigger to initiate pipeline"
